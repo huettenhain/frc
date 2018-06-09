@@ -1,0 +1,11 @@
+# ignore build folders
+Release
+Debug
+x64
+*/Release
+*/Debug
+*/x64
+*/*.vcxproj.*
+
+# ignore visual studio settings
+.vs
