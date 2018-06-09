@@ -49,8 +49,11 @@ Quite frankly, I mostly did it in ASM because it was fun. The reason I wanted to
 
 > I want to write a FAR plugin and I understand most of what is going on here, but where did you get `plugin.hpp`?
 
-It was copied from the [FAR Project on GitHub][GitHubFAR] and as FAR as I can tell, that's the way to do it. ¯\\\_(ツ)_/¯
+It is [`plugins/common/unicode/plugin.hpp`][plugin.hpp] from the [FAR Project on GitHub][GitHubFAR] and as FAR as I can tell, that's the way to do it. ¯\\\_(ツ)_/¯
 
+> Why don't you just use the [LiveFileSearch] plugin? It's a great plugin and does a much better job of being properly integrated into FAR!
+
+All true. Sadly, it does not update the run count in Everything and I really wanted that. 
 
 
 
@@ -58,5 +61,7 @@ It was copied from the [FAR Project on GitHub][GitHubFAR] and as FAR as I can te
 [mailslot]: https://en.wikipedia.org/wiki/MailSlot
 [Everything]: https://voidtools.com/
 [FAR]: https://www.farmanager.com/
+[LiveFileSearch]: https://plugring.farmanager.com/plugin.php?l=ru&pid=931
 [GitHubFAR]: https://github.com/FarGroup/FarManager
+[plugin.hpp]: https://github.com/FarGroup/FarManager/blob/master/plugins/common/unicode/plugin.hpp
 [NODEFAULTLIB]: https://docs.microsoft.com/en-us/cpp/build/reference/nodefaultlib-ignore-libraries
