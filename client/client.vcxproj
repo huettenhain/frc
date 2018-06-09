@@ -147,6 +147,7 @@
       <OptimizeReferences>true</OptimizeReferences>
       <EntryPointSymbol>main</EntryPointSymbol>
       <SubSystem>Windows</SubSystem>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
