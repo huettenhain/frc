@@ -107,7 +107,7 @@ BOOL TerminateRemoteFRC() {
       (lstrlenW(FRC_MSTOP)+1)*sizeof(*FRC_MSTOP), &written, NULL);
     CloseHandle(slot);      
     #define SLEEP_STEP 10
-    for (DWORD slept = 0; slept < TIMEOUT; 
+    for (DWORD slept = 0; slept < TIMEOUT + PATIENCE; 
       Sleep(SLEEP_STEP), slept += SLEEP_STEP)
     # undef SLEEP_STEP
     {
