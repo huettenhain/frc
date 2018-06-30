@@ -174,17 +174,23 @@ intptr_t WINAPI ProcessSynchroEventW(const struct ProcessSynchroEventInfo * Info
   if (Info->StructSize >= sizeof(*Info) && Info->Event == SE_COMMONSYNCHRO) {
     LPCWSTR path = (LPWSTR)Info->Param;
     LPWSTR file = NULL;
+    WCHAR fileFirst = L'\0';
     if (PathFileExistsW(path)) {
       struct FarPanelDirectory dir = { sizeof(dir) };
       dir.Name = path;
       if ((GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY) == 0) {
         file = PathFindFileNameW(path);
-        if (file == path) file = NULL;
-        else file[-1] = L'\0';
+        if (file == path) 
+          file = NULL;
+        else {
+          fileFirst = file[0];
+          file[0] = L'\0';
+        }
       }
       if (api.PanelControl(PANEL_ACTIVE, FCTL_SETPANELDIRECTORY, 0, &dir) && file) {
         HANDLE heap = GetProcessHeap();
         struct PanelInfo PanelInfo = { sizeof(PanelInfo) };
+        file[0] = fileFirst;
         if (api.PanelControl(PANEL_ACTIVE, FCTL_GETPANELINFO, 0, &PanelInfo)) {
           struct FarGetPluginPanelItem PanelItem = { sizeof(PanelItem) };
           unsigned int i;
