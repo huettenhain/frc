@@ -14,6 +14,11 @@ HANDLE doneEvent = NULL;
 HANDLE frcThread = NULL;
 HANDLE mailbox = NULL;
 
+typedef struct {
+  FRC_COMMAND_TYPE type;
+  WCHAR *arg;
+} FRC_COMMAND;
+
 VOID NullHandle(HANDLE *h) {
   if (*h && *h != INVALID_HANDLE_VALUE)
     CloseHandle(*h);
@@ -31,7 +36,8 @@ intptr_t FrcMessage(LPCWSTR *messages, size_t count, FARMESSAGEFLAGS flags) {
 DWORD WINAPI Receiver(PVOID reserved) {
   HANDLE heap = GetProcessHeap();
   DWORD size = MAX_PATH, bytesRead = 0;
-  PVOID data = HeapAlloc(heap, HEAP_ZERO_MEMORY, size);
+  BYTE* data = HeapAlloc(heap, HEAP_ZERO_MEMORY, size);
+  FRC_COMMAND cmd = {0};
   ResetEvent(doneEvent);
   if (data) {
     OVERLAPPED ov;
@@ -62,10 +68,16 @@ DWORD WINAPI Receiver(PVOID reserved) {
           }
         }
         break;
-      } else {
-        if (!StrCmpW(data, FRC_MSTOP))
+      } else if (bytesRead > 1) {
+        *(WCHAR*)(data + bytesRead - sizeof(WCHAR)) = L'\0';
+        if (data[1] == FRC_QUIT) 
           break;
-        api.AdvControl(&FRC_GUID_PLUG, ACTL_SYNCHRO, 0, data);
+        else if (IS_VALID_CMD(data[1])) {
+          cmd.type = data[1];
+          cmd.arg = (WCHAR*) data;
+          data[1] = 0;
+          api.AdvControl(&FRC_GUID_PLUG, ACTL_SYNCHRO, 0, &cmd);
+        }
       }
     }
     CloseHandle(ov.hEvent);
@@ -103,9 +115,9 @@ BOOL TerminateRemoteFRC() {
     FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
   if (slot != INVALID_HANDLE_VALUE) {
     DWORD written;
-    WriteFile(slot, (LPCVOID) FRC_MSTOP, 
-      (lstrlenW(FRC_MSTOP)+1)*sizeof(*FRC_MSTOP), &written, NULL);
-    CloseHandle(slot);      
+    TCHAR stop[2] = {FRC_QUIT, FRC_QUIT};
+    WriteFile(slot, (LPCVOID) stop, sizeof(stop), &written, NULL);
+    CloseHandle(slot);
     #define SLEEP_STEP 10
     for (DWORD slept = 0; slept < TIMEOUT + PATIENCE; 
       Sleep(SLEEP_STEP), slept += SLEEP_STEP)
@@ -170,57 +182,100 @@ BOOL ReceiverStop() {
   return !isReceiverStarted();
 }
 
-intptr_t WINAPI ProcessSynchroEventW(const struct ProcessSynchroEventInfo * Info) {
-  if (Info->StructSize >= sizeof(*Info) && Info->Event == SE_COMMONSYNCHRO) {
-    LPCWSTR path = (LPWSTR)Info->Param;
-    LPWSTR file = NULL;
-    WCHAR fileFirst = L'\0';
-    if (PathFileExistsW(path)) {
-      struct FarPanelDirectory dir = { sizeof(dir) };
-      dir.Name = path;
-      if ((GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY) == 0) {
-        file = PathFindFileNameW(path);
-        if (file == path) 
-          file = NULL;
-        else {
-          fileFirst = file[0];
-          file[0] = L'\0';
-        }
-      }
-      if (api.PanelControl(PANEL_ACTIVE, FCTL_SETPANELDIRECTORY, 0, &dir) && file) {
-        HANDLE heap = GetProcessHeap();
-        struct PanelInfo PanelInfo = { sizeof(PanelInfo) };
-        file[0] = fileFirst;
-        if (api.PanelControl(PANEL_ACTIVE, FCTL_GETPANELINFO, 0, &PanelInfo)) {
-          struct FarGetPluginPanelItem PanelItem = { sizeof(PanelItem) };
-          unsigned int i;
-          BOOL jumpToFile = FALSE;
-          PanelItem.Size = 2 * MAX_PATH * sizeof(WCHAR) + sizeof(*PanelItem.Item);
-          PanelItem.Item = (struct PluginPanelItem*) HeapAlloc(heap, HEAP_ZERO_MEMORY, PanelItem.Size);
-          struct PanelRedrawInfo PanelDrawInfo = { sizeof(PanelDrawInfo) };
-          for (i = 0; PanelItem.Item && i < PanelInfo.ItemsNumber; i++) {
-            size_t size = api.PanelControl(PANEL_ACTIVE, FCTL_GETPANELITEM, i, NULL);
-            if (size > PanelItem.Size) {
-              PVOID item = HeapReAlloc(heap, HEAP_ZERO_MEMORY, PanelItem.Item, size);
-              if (!item) continue;
-              PanelItem.Item = (struct PluginPanelItem*) item;
-              PanelItem.Size = size;
-            }
-            if (api.PanelControl(PANEL_ACTIVE, FCTL_GETPANELITEM, i, &PanelItem)) {
-              if (!StrCmpIW((LPWSTR)PanelItem.Item->FileName, file)) {
-                jumpToFile = TRUE;
-                PanelDrawInfo.CurrentItem = i;
-                break;
-              }
-            }
-          }
-          if (PanelItem.Item)
-            HeapFree(heap, 0, (PVOID) PanelItem.Item);
-          if (jumpToFile)
-            api.PanelControl(PANEL_ACTIVE, FCTL_REDRAWPANEL, 0, &PanelDrawInfo);
-        }
+BOOL FrcGoto(WCHAR* path) {
+  LPWSTR file = NULL;
+  WCHAR fileFirst = L'\0';
+  BOOL success = PathFileExistsW(path);
+  if (success) {
+    struct FarPanelDirectory dir = { sizeof(dir) };
+    dir.Name = path;
+    if ((GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+      file = PathFindFileNameW(path);
+      if (file == path) 
+        file = NULL;
+      else {
+        fileFirst = file[0];
+        file[0] = L'\0';
       }
     }
+    success = (BOOL) api.PanelControl(PANEL_ACTIVE, FCTL_SETPANELDIRECTORY, 0, &dir);
+    if (success && file) {
+      HANDLE heap = GetProcessHeap();
+      struct PanelInfo PanelInfo = { sizeof(PanelInfo) };
+      file[0] = fileFirst;
+      success = (BOOL) api.PanelControl(PANEL_ACTIVE, FCTL_GETPANELINFO, 0, &PanelInfo);
+      if (success) {
+        struct FarGetPluginPanelItem PanelItem = { sizeof(PanelItem) };
+        unsigned int i;
+        success = FALSE;
+        PanelItem.Size = 2 * MAX_PATH * sizeof(WCHAR) + sizeof(*PanelItem.Item);
+        PanelItem.Item = (struct PluginPanelItem*) HeapAlloc(heap, HEAP_ZERO_MEMORY, PanelItem.Size);
+        struct PanelRedrawInfo PanelDrawInfo = { sizeof(PanelDrawInfo) };
+        for (i = 0; PanelItem.Item && i < PanelInfo.ItemsNumber; i++) {
+          size_t size = api.PanelControl(PANEL_ACTIVE, FCTL_GETPANELITEM, i, NULL);
+          if (size > PanelItem.Size) {
+            PVOID item = HeapReAlloc(heap, HEAP_ZERO_MEMORY, PanelItem.Item, size);
+            if (!item) continue;
+            PanelItem.Item = (struct PluginPanelItem*) item;
+            PanelItem.Size = size;
+          }
+          if (api.PanelControl(PANEL_ACTIVE, FCTL_GETPANELITEM, i, &PanelItem)) {
+            if (!StrCmpIW((LPWSTR)PanelItem.Item->FileName, file)) {
+              success = TRUE;
+              PanelDrawInfo.CurrentItem = i;
+              break;
+            }
+          }
+        }
+        if (PanelItem.Item)
+          HeapFree(heap, 0, (PVOID) PanelItem.Item);
+        if (success)
+          success = (BOOL) api.PanelControl(PANEL_ACTIVE, FCTL_REDRAWPANEL, 0, &PanelDrawInfo);
+      } 
+    }
+  }
+  return success;
+}
+
+BOOL FrcCopy(WCHAR* arg) {
+  BOOL quote = (StrChrW(arg, L' ') != NULL);
+  if (quote) {
+    int size = lstrlenW(arg) + 3;
+    HANDLE heap = GetProcessHeap();
+    WCHAR* quot = HeapAlloc(heap, HEAP_ZERO_MEMORY, size);
+    if (quot) {
+      lstrcpynW(quot+1, arg, size);
+      quot[0] = quot[size+1] = L'"';
+      api.PanelControl(PANEL_ACTIVE, FCTL_INSERTCMDLINE, 0, quot);
+      HeapFree(heap, 0, quot);
+    } else {
+      return FALSE;
+    }
+  } else {
+    api.PanelControl(PANEL_ACTIVE, FCTL_INSERTCMDLINE, 0, arg);
+  }
+  return TRUE;
+}
+
+intptr_t WINAPI ProcessSynchroEventW(const struct ProcessSynchroEventInfo * Info) {
+  if (Info->StructSize >= sizeof(*Info) && Info->Event == SE_COMMONSYNCHRO) {
+    FRC_COMMAND *cmd = (FRC_COMMAND*) Info->Param;
+    BOOL success = FALSE;
+    if (cmd && cmd->arg) {
+      switch (cmd->type) { 
+        case FRC_GOTO:
+          success = FrcGoto(cmd->arg);
+          break;
+        case FRC_COPY:
+          success = FrcCopy(cmd->arg);
+          break;
+      }
+    }
+    if (!success) {
+      LPCWSTR msg[] = { FRC_TITLE, L"An unexpected error occurred." };
+      FrcMessage(msg, 1, FMSG_WARNING | FMSG_MB_OK | FMSG_ERRORTYPE);
+    }
+    return 1;
   }
   return 0;
 }
