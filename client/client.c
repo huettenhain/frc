@@ -6,6 +6,7 @@
 BYTE ParseArgument(WCHAR* cmd) {
   if (!StrCmpIW(cmd, L"goto")) return FRC_GOTO;
   if (!StrCmpIW(cmd, L"copy")) return FRC_COPY;
+  if (!StrCmpIW(cmd, L"qcpy")) return FRC_QCPY;
   if (!StrCmpIW(cmd, L"quit")) return FRC_QUIT;
   return FRC_NONE;
 }
@@ -19,10 +20,13 @@ __declspec(noreturn) void ExitNoSlot() {
 
 __declspec(noreturn) void ExitUsage() {
   MessageBoxA(NULL,
-    "client [goto | copy | quit] [argument]\n\n"
-    "  goto - navigate to file or folder given as argument\n"
-    "  copy - insert the argument into the FAR command line\n"
-    "  quit - request frc server termination\n",
+    "The FRC client executable supports the following commands as its first parameter, "
+    "followed by an optional argument in some cases. All commands are case-insensitive.\n\n"
+    "GOTO\nNavigate to the file or folder given as the second argument.\n\n"
+    "COPY\nInsert the second argument as a string into the FAR command line\n\n"
+    "QCPY\nInsert the second argument into the FAR command line, but wrap it in double "
+    "quotes if it contains a space character (used to insert path names)\n\n"
+    "QUIT\nIssue a request for FRC server termination. The second argument is ignored.",
     "FRC Client Usage", MB_OK | MB_ICONWARNING);
   ExitProcess(1);
 }

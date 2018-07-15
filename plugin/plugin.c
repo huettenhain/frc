@@ -237,15 +237,15 @@ BOOL FrcGoto(WCHAR* path) {
   return success;
 }
 
-BOOL FrcCopy(WCHAR* arg) {
-  BOOL quote = (StrChrW(arg, L' ') != NULL);
-  if (quote) {
-    int size = lstrlenW(arg) + 3;
+BOOL FrcCopy(WCHAR* arg, BOOL escape) {
+  if (escape && StrChrW(arg, L' ')) {
+    int size = lstrlenW(arg)+1;
     HANDLE heap = GetProcessHeap();
-    WCHAR* quot = HeapAlloc(heap, HEAP_ZERO_MEMORY, size);
+    WCHAR* quot = HeapAlloc(heap, HEAP_ZERO_MEMORY, sizeof(WCHAR)*(size+2));
     if (quot) {
       lstrcpynW(quot+1, arg, size);
-      quot[0] = quot[size+1] = L'"';
+      quot[size] = quot[0] = L'"';
+      quot[size+1] = L'\0';
       api.PanelControl(PANEL_ACTIVE, FCTL_INSERTCMDLINE, 0, quot);
       HeapFree(heap, 0, quot);
     } else {
@@ -261,13 +261,16 @@ intptr_t WINAPI ProcessSynchroEventW(const struct ProcessSynchroEventInfo * Info
   if (Info->StructSize >= sizeof(*Info) && Info->Event == SE_COMMONSYNCHRO) {
     FRC_COMMAND *cmd = (FRC_COMMAND*) Info->Param;
     BOOL success = FALSE;
+    BOOL escaped = FALSE;
     if (cmd && cmd->arg) {
       switch (cmd->type) { 
         case FRC_GOTO:
           success = FrcGoto(cmd->arg);
           break;
+        case FRC_QCPY:
+          escaped = TRUE;
         case FRC_COPY:
-          success = FrcCopy(cmd->arg);
+          success = FrcCopy(cmd->arg, escaped);
           break;
       }
     }
