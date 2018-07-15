@@ -69,10 +69,10 @@ DWORD WINAPI Receiver(PVOID reserved) {
         }
         break;
       } else if (bytesRead > 1) {
-        *(WCHAR*)(data + bytesRead - sizeof(WCHAR)) = L'\0';
         if (data[1] == FRC_QUIT) 
           break;
-        else if (IS_VALID_CMD(data[1])) {
+        *(WCHAR*)(data + bytesRead - sizeof(WCHAR)) = L'\0';
+        if (IS_VALID_CMD(data[1])) {
           cmd.type = data[1];
           cmd.arg = (WCHAR*) data;
           data[1] = 0;
@@ -115,8 +115,8 @@ BOOL TerminateRemoteFRC() {
     FILE_SHARE_READ, NULL, OPEN_EXISTING, FILE_ATTRIBUTE_NORMAL, NULL);
   if (slot != INVALID_HANDLE_VALUE) {
     DWORD written;
-    TCHAR stop[2] = {FRC_QUIT, FRC_QUIT};
-    WriteFile(slot, (LPCVOID) stop, sizeof(stop), &written, NULL);
+    WCHAR stop = (WCHAR)(FRC_QUIT<<8);
+    WriteFile(slot, (LPCVOID) &stop, sizeof(stop), &written, NULL);
     CloseHandle(slot);
     #define SLEEP_STEP 10
     for (DWORD slept = 0; slept < TIMEOUT + PATIENCE; 
