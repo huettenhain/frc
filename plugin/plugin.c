@@ -186,6 +186,7 @@ BOOL FrcGoto(WCHAR* path) {
   LPWSTR file = NULL;
   WCHAR fileFirst = L'\0';
   BOOL success = PathFileExistsW(path);
+  BringWindowToTop(GetConsoleWindow());
   if (success) {
     struct FarPanelDirectory dir = { sizeof(dir) };
     dir.Name = path;
@@ -298,7 +299,7 @@ void WINAPI SetStartupInfoW(const struct PluginStartupInfo * Info) {
 HANDLE WINAPI OpenW(const struct OpenInfo *Info) {
   if (Info->OpenFrom == OPEN_FROMMACRO || Info->OpenFrom == OPEN_LUAMACRO) {
     struct OpenMacroInfo *Args = (struct OpenMacroInfo *) Info->Data;
-    if ((Args != NULL) && (Args->Count > 0) && (Args->Values[0].Type = FMVT_STRING)) {
+    if ((Args != NULL) && (Args->Count > 0) && (Args->Values[0].Type == FMVT_STRING)) {
       if (ReceiverStart(TRUE, FALSE, TRUE)) {
         LPCWSTR command = Args->Values[0].Value.String;
         LPCWSTR parameters = NULL;
