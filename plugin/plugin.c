@@ -182,15 +182,14 @@ BOOL ReceiverStop() {
   return !isReceiverStarted();
 }
 
-BOOL FrcGoto(WCHAR* path) {
+BOOL FrcGoto(WCHAR* path, BOOL navinto) {
   LPWSTR file = NULL;
   WCHAR fileFirst = L'\0';
   BOOL success = PathFileExistsW(path);
-  BringWindowToTop(GetConsoleWindow());
   if (success) {
     struct FarPanelDirectory dir = { sizeof(dir) };
     dir.Name = path;
-    if ((GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY) == 0) {
+    if (!navinto || (GetFileAttributesW(path) & FILE_ATTRIBUTE_DIRECTORY) == 0) {
       file = PathFindFileNameW(path);
       if (file == path) 
         file = NULL;
@@ -263,10 +262,17 @@ intptr_t WINAPI ProcessSynchroEventW(const struct ProcessSynchroEventInfo * Info
     FRC_COMMAND *cmd = (FRC_COMMAND*) Info->Param;
     BOOL success = FALSE;
     BOOL escaped = FALSE;
+    BOOL navinto = FALSE;
+    HWND console = GetConsoleWindow();
+    if (IsIconic(console))
+        ShowWindow(console, SW_SHOW);
+    BringWindowToTop(console) && SetForegroundWindow(console);
     if (cmd && cmd->arg) {
-      switch (cmd->type) { 
+      switch (cmd->type) {
+        case FRC_INTO:
+          navinto = TRUE;
         case FRC_GOTO:
-          success = FrcGoto(cmd->arg);
+          success = FrcGoto(cmd->arg, navinto);
           break;
         case FRC_QCPY:
           escaped = TRUE;

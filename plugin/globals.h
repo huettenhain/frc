@@ -13,11 +13,12 @@ const static wchar_t *FRC_TITLE = L"Far Remote Control";
 
 typedef enum {
   FRC_NONE = 0,
-  FRC_GOTO = 1,
+  FRC_INTO = 1,
   FRC_COPY = 2,
   FRC_QCPY = 3,
+  FRC_GOTO = 4,
   FRC_QUIT = 0xFF,
 } FRC_COMMAND_TYPE;
 
-#define FRC_LAST FRC_QCPY
+#define FRC_LAST FRC_GOTO
 #define IS_VALID_CMD(_x) ((_x)>=1 && (_x)<=FRC_LAST)
