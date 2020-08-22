@@ -54,7 +54,8 @@ The FRC interface in FAR is quite simplistic. You can call FRC via <kbd>F11</kbd
 
 The client executable will provide a list of supported commands when it is executed. The currently supported commands are the following:
 
-- `goto` navigates to the file or folder given as the second argument.
+- `goto` navigates to the parent directory of the given file or folder and places the cursor on it.
+- `into` works as `goto`, but when the argument is a folder then FRC navigates into this folder.
 - `copy` inserts the second argument as a string into the FAR command line.
 - `qcpy` acts as `copy`, but wraps the string in double quotes if it contains a space character.
 - `quit` issues a request for FRC server termination, the second argument is ignored.
@@ -66,7 +67,7 @@ The executable currently encodes the command in a rather dirty way by overwritin
 
 > Does FRC work with file names as well? What does it do?
 
-Yes, the client's `goto` command works like the `goto:` command in FAR. When the plugin reads a file name (not a directory name) from the mailslot, it will try to navigate to its parent folder and move the cursor to the file.
+Yes, the client's `goto` command works similar to the `goto:` command in FAR; It will navigate to the parent directory of the given file or folder and move the cursor to the item.
 
 > Why did you implement `memset` in [`memset32.asm`](plugin/memset32.asm) and [`memset64.asm`](plugin/memset64.asm)?
 
