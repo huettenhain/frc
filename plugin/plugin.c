@@ -185,6 +185,7 @@ BOOL ReceiverStop() {
 BOOL FrcGoto(WCHAR* path, BOOL navinto) {
   LPWSTR file = NULL;
   WCHAR fileFirst = L'\0';
+  while (!*PathRemoveBackslashW(path));
   BOOL success = PathFileExistsW(path);
   if (success) {
     struct FarPanelDirectory dir = { sizeof(dir) };
