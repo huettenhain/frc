@@ -34,6 +34,17 @@ intptr_t FrcMessage(LPCWSTR *messages, size_t count, FARMESSAGEFLAGS flags) {
     messages, count+1, 0);
 }
 
+HANDLE FrcCreateFreeForAllMailslot() {
+    SECURITY_DESCRIPTOR sd = { 0 };
+    SECURITY_ATTRIBUTES sa = { 0 };
+    InitializeSecurityDescriptor(&sd, SECURITY_DESCRIPTOR_REVISION);
+    SetSecurityDescriptorDacl(&sd, TRUE, NULL, FALSE);
+    sa.nLength = sizeof(SECURITY_ATTRIBUTES);
+    sa.lpSecurityDescriptor = &sd;
+    sa.bInheritHandle = TRUE;
+    return CreateMailslotW(FRC_MSLOT, 0, TIMEOUT, &sa);
+}
+
 DWORD WINAPI Receiver(PVOID reserved) {
   HANDLE heap = GetProcessHeap();
   DWORD size = MAX_PATH, bytesRead = 0;
@@ -124,7 +135,7 @@ BOOL TerminateRemoteFRC() {
       Sleep(SLEEP_STEP), slept += SLEEP_STEP)
     # undef SLEEP_STEP
     {
-      mailbox = CreateMailslotW(FRC_MSLOT, 0, TIMEOUT, NULL);
+      mailbox = FrcCreateFreeForAllMailslot();
       if (mailbox != INVALID_HANDLE_VALUE)
         return TRUE;
     }
@@ -137,7 +148,7 @@ BOOL TerminateRemoteFRC() {
 BOOL ReceiverStart(BOOL quietSuccess, BOOL quietFailure, BOOL terminateOther) {
   BOOL didKill = FALSE;
   if (!isReceiverStarted()) {
-    mailbox = CreateMailslotW(FRC_MSLOT, 0, TIMEOUT, NULL);
+    mailbox = FrcCreateFreeForAllMailslot();
     if (mailbox == INVALID_HANDLE_VALUE) {
       mailbox = NULL;
       if (!terminateOther && !quietFailure) {
