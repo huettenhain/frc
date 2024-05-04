@@ -13,6 +13,7 @@ HANDLE stopEvent = NULL;
 HANDLE doneEvent = NULL;
 HANDLE frcThread = NULL;
 HANDLE mailbox = NULL;
+HWND theFarWindow = NULL;
 
 typedef struct {
   FRC_COMMAND_TYPE type;
@@ -264,10 +265,12 @@ intptr_t WINAPI ProcessSynchroEventW(const struct ProcessSynchroEventInfo * Info
     BOOL success = FALSE;
     BOOL escaped = FALSE;
     BOOL navinto = FALSE;
-    HWND console = GetConsoleWindow();
-    if (IsIconic(console))
-        ShowWindow(console, SW_SHOW);
-    BringWindowToTop(console) && SetForegroundWindow(console);
+
+    ShowWindow(theFarWindow, IsIconic(theFarWindow) ? SW_RESTORE : SW_SHOW);
+    BringWindowToTop(theFarWindow);
+    SetWindowPos(theFarWindow, HWND_TOP, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOMOVE | SWP_NOSIZE);
+    SetForegroundWindow(theFarWindow);
+
     if (cmd && cmd->arg) {
       switch (cmd->type) {
         case FRC_INTO:
@@ -298,6 +301,8 @@ void WINAPI SetStartupInfoW(const struct PluginStartupInfo * Info) {
     stopEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
   if (!doneEvent)
     doneEvent = CreateEvent(NULL, TRUE, TRUE, NULL);
+  if (!theFarWindow)
+    theFarWindow = GetForegroundWindow();
   oi.OpenFrom = OPEN_VIEWER;
   OpenW(&oi);
 }
