@@ -394,7 +394,7 @@ HANDLE WINAPI OpenW(const struct OpenInfo *Info) {
 void WINAPI GetGlobalInfoW(struct GlobalInfo *Info) {
   Info->StructSize = sizeof(struct GlobalInfo);
   Info->MinFarVersion = MAKEFARVERSION(3, 0, 0, 2927, VS_RELEASE);
-  Info->Version = MAKEFARVERSION(2, 3, 0, 0, VS_RELEASE);
+  Info->Version = MAKEFARVERSION(2, 4, 0, 0, VS_RELEASE);
   Info->Guid = FRC_GUID_PLUG;
   Info->Title = L"FRC";
   Info->Description = L"FAR Remote Control";
