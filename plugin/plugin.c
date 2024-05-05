@@ -13,7 +13,6 @@ HANDLE stopEvent = NULL;
 HANDLE doneEvent = NULL;
 HANDLE frcThread = NULL;
 HANDLE mailbox = NULL;
-HWND theFarWindow = NULL;
 
 typedef struct {
   FRC_COMMAND_TYPE type;
@@ -270,6 +269,46 @@ BOOL FrcCopy(WCHAR* arg, BOOL escape) {
   return TRUE;
 }
 
+typedef struct {
+  HWND leaf;
+  HWND root;
+  BOOL done;
+} __GPWDATA;
+
+BOOL CALLBACK EnumChildProc(HWND hWnd, LPARAM lParam) {
+  __GPWDATA* gpw = (__GPWDATA*)lParam;
+  if (hWnd == gpw->leaf) {
+    gpw->done = TRUE;
+    return FALSE;
+  } else {
+    EnumChildWindows(hWnd, EnumChildProc, lParam);
+    return !gpw->done;
+  }
+}
+
+BOOL CALLBACK EnumRootsProc(HWND hWnd, LPARAM lParam) {
+  __GPWDATA* gpw = (__GPWDATA*)lParam;
+  if (hWnd == gpw->leaf) {
+    gpw->done = TRUE;
+  } else {
+    EnumChildWindows(hWnd, EnumChildProc, lParam);
+  }
+  if (gpw->done) {
+    gpw->root = hWnd;
+    return FALSE;
+  } else {
+    return TRUE;
+  }
+}
+
+HWND GetRootWindow(HWND hWnd) {
+  __GPWDATA gpw = { hWnd, NULL, FALSE };
+  EnumWindows(EnumRootsProc, (LPARAM) &gpw);
+  if (!gpw.done || !gpw.root)
+    return hWnd;
+  return gpw.root;
+}
+
 intptr_t WINAPI ProcessSynchroEventW(const struct ProcessSynchroEventInfo * Info) {
   if (Info->StructSize >= sizeof(*Info) && Info->Event == SE_COMMONSYNCHRO) {
     FRC_COMMAND *cmd = (FRC_COMMAND*) Info->Param;
@@ -277,10 +316,16 @@ intptr_t WINAPI ProcessSynchroEventW(const struct ProcessSynchroEventInfo * Info
     BOOL escaped = FALSE;
     BOOL navinto = FALSE;
 
-    ShowWindow(theFarWindow, IsIconic(theFarWindow) ? SW_RESTORE : SW_SHOW);
-    BringWindowToTop(theFarWindow);
-    SetWindowPos(theFarWindow, HWND_TOP, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOMOVE | SWP_NOSIZE);
-    SetForegroundWindow(theFarWindow);
+//  The following code is required to get the terminal window when FAR is running under ConEmu. To
+//  restore FAR, it is necessary to obtain a handle to the terminal emulator window rather than the
+//  console window itself. Under ConEmu, a top-down search of all windows appears to be the only
+//  way to do so. Details: https://github.com/huettenhain/frc/issues/4
+    HWND hWnd = GetRootWindow(GetConsoleWindow());
+
+    ShowWindow(hWnd, IsIconic(hWnd) ? SW_RESTORE : SW_SHOW);
+    BringWindowToTop(hWnd);
+    SetWindowPos(hWnd, HWND_TOP, 0, 0, 0, 0, SWP_SHOWWINDOW | SWP_NOMOVE | SWP_NOSIZE);
+    SetForegroundWindow(hWnd);
 
     if (cmd && cmd->arg) {
       switch (cmd->type) {
@@ -312,8 +357,6 @@ void WINAPI SetStartupInfoW(const struct PluginStartupInfo * Info) {
     stopEvent = CreateEvent(NULL, FALSE, FALSE, NULL);
   if (!doneEvent)
     doneEvent = CreateEvent(NULL, TRUE, TRUE, NULL);
-  if (!theFarWindow)
-    theFarWindow = GetForegroundWindow();
   oi.OpenFrom = OPEN_VIEWER;
   OpenW(&oi);
 }
